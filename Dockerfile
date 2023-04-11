@@ -20,3 +20,8 @@ RUN apt update && \
     apt install curl ca-certificates xz-utils -y -qq --no-install-recommends && \
     curl https://wasmtime.dev/install.sh -sSf | bash && \
     pip install wasmtime
+
+FROM wasmtime AS final
+
+# Install python packages
+RUN pip install -e .
