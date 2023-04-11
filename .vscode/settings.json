@@ -1,0 +1,6 @@
+{
+    "python.analysis.typeCheckingMode": "basic",
+    "terminal.integrated.copyOnSelection": true,
+    "terminal.integrated.shellIntegration.suggestEnabled": true,
+    "autoDocstring.docstringFormat": "sphinx"
+}

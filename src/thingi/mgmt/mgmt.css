@@ -1,0 +1,22 @@
+DeviceList {
+    border: wide $primary;
+}
+
+DeviceList Button {
+    width: 100;
+}
+
+#initrc {
+}
+
+#initrc .pending {
+}
+
+#initrc .running {
+    text-style: bold;
+}
+
+#initrc .failed {
+    text-style: bold;
+    color: red;
+}
