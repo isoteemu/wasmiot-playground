@@ -10,6 +10,9 @@
 		}
 	},
 
+	// Use /app -folder as a workspace folder. Otherwise it will depend on repository name.
+	"workspaceFolder": "/app",
+
 	// Enable debugging.
 	"runArgs": [
 		"--cap-add=SYS_PTRACE",
