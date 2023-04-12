@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/devcontainers/python:0-3.11-buster AS base
+FROM mcr.microsoft.com/devcontainers/python:0-3.11 AS base
 
 RUN su vscode -c "mkdir -p /home/vscode/.vscode-server/extensions"
 
