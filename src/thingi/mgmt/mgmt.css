@@ -9,6 +9,7 @@ DeviceList Button {
 #initrc {
 }
 
+
 #initrc .pending {
 }
 
@@ -19,4 +20,13 @@ DeviceList Button {
 #initrc .failed {
     text-style: bold;
     color: red;
+}
+
+#initrc .skipped {
+    text-style: strike;
+}
+
+#initrc .success {
+    text-style: bold;
+    color: green;
 }

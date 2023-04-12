@@ -19,10 +19,13 @@ from textual import work
 from rich.status import Status
 from rich.text import Text
 from gettext import gettext as _
+from thingi.init import Init
 
 from thingi.settings import Settings
 from .cli import cli
-from .bootstrap import Status as InitRCStatus
+from .bootstrap import (
+    Status as InitRCStatus
+)
 
 from werkzeug.local import LocalProxy
     
@@ -111,71 +114,86 @@ class InitrcWidget(Static):
     def __init__(self, renderable, *args, **kwargs):
         self._title = renderable
         self._status = Status(self._title, spinner="dots")
-        self.prev_status = self.status
 
-        return super().__init__(self._status, *args, **kwargs)
+        super().__init__(self._status, *args, **kwargs)
+    
+        self.update_render = self.set_interval(1 / 12.5, self.update_spinner)
 
     def update_spinner(self) -> None:
-        self.update(self._status._spinner)
-        print("CHECK:", self._title, self.status)
-
-    def on_show(self):
-        self.update_render = self.set_interval(1 / 1, self.update_spinner)
+        self.update(self._status)
+        logger.debug("CHECK:", self._title, self.status)
 
     def watch_status(self):
         
+        print("WATCH:", self._title, self.status)
         msg = Text(self._title)
 
         match self.status:
             case InitRCStatus.PENDING:
-                self._status.update(spinner="dots11")
+                msg += Text(" [PENDING]", style="")
+                self._status.update(msg, spinner="dots")
                 self.classes = ["pending"]
+                self.update_render.stop()
             case InitRCStatus.RUNNING:
-                self._status.update(spinner="dots")
+                msg += Text(" [RUNNING]", style="")
+                self._status.update(msg, spinner="dots")
+                self.update_render.start()
                 self.classes = ["running"]
+            case InitRCStatus.SKIPPED:
+                msg += Text(" [SKIPPED]", style="bold")
+                self._status.update(msg)
+                self.classes = ["skipped"]
+                self.update_render.stop()
             case InitRCStatus.FAILED:
-                self._status.update(spinner="dots")
+                msg += Text(" [FAILED]", style="bold")
+                self._status.update(msg)
                 self.classes = ["failed"]
-
+                self.update_render.stop()
+            case InitRCStatus.SUCCESS:
+                msg += Text(" [SUCCESS]", style="bold")
+                self._status.update(msg)
+                self.classes = ["success"]
+                self.update_render.stop()
+                
 
 class BootstrapScreen(Screen):
 
     TITLE = "WasmIoT Management Console Bootup"
+    initrc: Init
 
-    statuses = []
+    def __init__(self, *args, **kwargs):
+        from .bootstrap import initrc
+        self.initrc = initrc
+
+        super().__init__(*args, **kwargs)
 
     def compose(self) -> ComposeResult:
         
         self.widget = VerticalScroll(id="initrc")
         self._spinners = {}
 
-
-        from .bootstrap import INITRC_ACTIONS
-        initrc = INITRC_ACTIONS
-
-        self.statuses = [reactive(-1)] * len(initrc)
+        self.initrc.app = self.app
+        units = self.initrc.units
 
         with self.widget: 
 
-            for i, action in enumerate(initrc):
-                message_widget = InitrcWidget(action.description) #, func=action.func)
-                message_widget.status = self.statuses[i]
+            for key, action in units.items():
+                self._spinners[key] = InitrcWidget(action.description) #, func=action.func)
+                self.initrc.status[key] = self._spinners[key].status
 
-                yield message_widget
+                yield self._spinners[key]
 
     def on_mount(self) -> None:
-        from .bootstrap import run_init
         print("Running initrc")
-        self.run_worker(run_init(self.statuses, current_app=self.app))
-        
-        self.update_render = self.set_interval(1, self.check_status)
+        self.run_worker(self.initrc.run)
+        self.update_render = self.set_interval(1/12.5, self.check_status)
 
     def check_status(self):
-        print("check_status", self.statuses)
-
-
-    def watch_statuses(self, statuses) -> None:
-        print("watch_statuses", statuses)
+        print("Widget:", self.widget)
+        for key, widget in self._spinners.items():
+            widget.status = self.initrc.status[key]
+            print("Widget:", key, widget.status)
+            #widget.watch_status()
 
 
 class MgmtApp(App):
