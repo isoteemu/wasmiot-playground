@@ -2,7 +2,9 @@ zeroconf
 pydantic
 
 click
-pybabel
 
 # Used for the management app
 textual
+rich
+toposort
+werkzeug
