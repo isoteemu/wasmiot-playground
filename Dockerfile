@@ -1,8 +1,22 @@
 FROM mcr.microsoft.com/devcontainers/python:0-3.11 AS base
 
-RUN su vscode -c "mkdir -p /home/vscode/.vscode-server/extensions"
+# Install wasmtime
+RUN apt update && \
+    apt install curl ca-certificates xz-utils -y -qq --no-install-recommends && \
+    curl https://wasmtime.dev/install.sh -sSf | bash && \
+    pip install wasmtime
 
-FROM base AS wasm
+
+# Install our app
+WORKDIR /app
+COPY . /app
+
+ENV PYTHONUNBUFFERED 1
+RUN pip install --disable-pip-version-check -e .
+
+FROM base AS dev
+
+RUN pip install --disable-pip-version-check -e .[dev]
 
 # Install rust using devcontainer script
 ENV CARGO_HOME=/usr/local/cargo \
@@ -13,15 +27,15 @@ RUN apt-get update && bash /tmp/library-scripts/rust.sh "${CARGO_HOME}" "${RUSTU
 
 RUN ${CARGO_HOME}/bin/rustup target add wasm32-wasi
 
-FROM wasm AS wasmtime
+FROM dev AS devcontainer
 
-# Install wasmtime
-RUN apt update && \
-    apt install curl ca-certificates xz-utils -y -qq --no-install-recommends && \
-    curl https://wasmtime.dev/install.sh -sSf | bash && \
-    pip install wasmtime
+ENV PYTHONDONTWRITEBYTECODE 1
+ARG USERNAME=vscode
 
-FROM wasmtime AS final
+RUN su "${USERNAME}" -c "mkdir -p /home/${USERNAME}/.vscode-server{-insiders,}/extensions"
 
-# Install python packages
-RUN pip install -e .
+RUN SNIPPET="export PROMPT_COMMAND='history -a' && export HISTFILE=/commandhistory/.bash_history" \
+    && mkdir /commandhistory \
+    && touch /commandhistory/.bash_history \
+    && chown -R $USERNAME /commandhistory \
+    && echo "$SNIPPET" >> "/home/$USERNAME/.bashrc"
