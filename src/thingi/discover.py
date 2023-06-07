@@ -9,14 +9,22 @@ specification, but omits the TDD (Thing Description Directory) part.
 """
 
 import logging
-import requests
+from typing import TypedDict
+import httpx
+import sentry_sdk
 
 import zeroconf
 
 logger = logging.getLogger(__name__)
 
 
-class HTTPClient(requests.Session):
+class NodeInfo(TypedDict, total=False):
+    """
+    Node info.
+    """
+
+
+class HTTPClientAdapter(httpx.Client):
     pass
 
 
@@ -32,7 +40,7 @@ def get_service_info(zc: zeroconf.Zeroconf, type_, name):
     return service_info
 
 
-def explore_service_info(si: zeroconf.ServiceInfo):
+async def explore_service_info(si: zeroconf.ServiceInfo):
     """
     Explore service info.
 
@@ -45,8 +53,10 @@ def explore_service_info(si: zeroconf.ServiceInfo):
     adapter = create_request_adapter(si)
 
     properties = {
-        'td': 
+        'td': '/.well-known/thing-description',
     }
+
+    ...
     
 
 def create_request_adapter(si: zeroconf.ServiceInfo):
@@ -64,10 +74,10 @@ def create_request_adapter(si: zeroconf.ServiceInfo):
         case {"scheme": b"coap" | b"coaps" | b"coap+tcp" | b"coaps+tcp"}:
             raise NotImplementedError("CoAP not implemented yet")
         case {"scheme": b"http" | b"https"}:
-            return HTTPClient()
+            return HTTPClientAdapter()
         case {"scheme": None}:
             si.properties["scheme"] = b"http"
-            return HTTPClient()
+            return HTTPClientAdapter()
         case _:
             raise ValueError("Unknown scheme or protocol")
 
@@ -79,7 +89,7 @@ class WebThingListener(zeroconf.ServiceListener):
         """Initialize the listener."""
         self.services = {}
 
-    def add_service(self, zeroconf, service_type, name):
+    def add_service(self, zeroconf: zeroconf.Zeroconf, service_type, name):
         """Add a service."""
         info = zeroconf.get_service_info(service_type, name)
         if info is None:
@@ -96,12 +106,32 @@ class WebThingListener(zeroconf.ServiceListener):
         self.add_service(zeroconf, service_type, name)
 
 
+class Discover():
+    """A class for discovering webthings."""
+    
+    TYPE: str = "_wot._tcp.local."
+
+    def __init__(self, zeroconf_instance=None):
+        """Initialize the discover class."""
+        self.zc = zeroconf_instance or zeroconf.Zeroconf()
+        self.registry = {}
+        self.listener = WebThingListener()
+
+    def discover(self, timeout=5):
+        """Discover webthings."""
+        self.zc.add_service_listener(self.TYPE, self.listener)
+        return self.listener.services
+
+    def close(self):
+        """Close the zeroconf instance."""
+        self.zc.remove_service_listener(self.listener)
+        self.zc.close()
+
+    async def scan(self, timeout=5):
+        # Send ServiceInfo request
+        si = zeroconf.ServiceInfo(self.TYPE, self.TYPE)
+
+
+
 if __name__ == "__main__":
-    import asyncio
-    import time
-
-    listener = do_discover()
-        
-    from time import sleep
-    sleep(10)
-
+    discover = Discover()

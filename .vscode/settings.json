@@ -2,5 +2,10 @@
     "python.analysis.typeCheckingMode": "basic",
     "terminal.integrated.copyOnSelection": true,
     "terminal.integrated.shellIntegration.suggestEnabled": true,
-    "autoDocstring.docstringFormat": "sphinx"
+    "autoDocstring.docstringFormat": "sphinx",
+    "python.testing.pytestArgs": [
+        "tests"
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true
 }

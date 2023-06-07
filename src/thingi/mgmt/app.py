@@ -14,11 +14,13 @@ from textual.widgets import Header, Footer, Placeholder, Static, ListView, ListI
 from textual.containers import Container, Vertical, VerticalScroll, Horizontal
 from textual.binding import Binding
 from textual.logging import TextualHandler
+from textual.worker import Worker, WorkerState
 from zeroconf import ServiceInfo
 from textual import work
 from rich.status import Status
 from rich.text import Text
 from gettext import gettext as _
+from thingi.discover import Discover
 from thingi.init import Init
 
 from thingi.settings import Settings
@@ -73,35 +75,6 @@ class DevicesScreen(Screen):
 
     def action_scan(self):
         self.log("Refreshing...")
-
-
-class StatusWidget(Static):
-    def __init__(self, *args, **kwargs):
-        self._status = Status(args[0], spinner="dots")
-        self._task: asyncio.Task
-        self._func: Optional[Callable] = kwargs.pop("func", None)
-
-        super().__init__(*args, **kwargs)
-
-    def on_show(self):
-        if self._func:
-            self._task = asyncio.create_task(self._func()) 
-
-        self.update_render = self.set_interval(1 / 12.5, self.update_spinner)
-
-    def update_spinner(self) -> None:
-        if self._task.done():
-            self._status.stop()
-            msg = self._status.renderable.text
-            self.update_render.stop()
-
-            if (exc := self._task.exception()):
-                logger.exception(exc)
-                self._status.update(msg + Text(" [FAILED]", style="bold red"))  # type: ignore
-            else:
-                self._status.update(msg + Text(" [ DONE ]", style="bold green"))  # type: ignore
-
-        self.update(self._status._spinner)
 
 
 class InitrcWidget(Static):
@@ -189,12 +162,25 @@ class BootstrapScreen(Screen):
         self.update_render = self.set_interval(1/12.5, self.check_status)
 
     def check_status(self):
-        print("Widget:", self.widget)
         for key, widget in self._spinners.items():
             widget.status = self.initrc.status[key]
-            print("Widget:", key, widget.status)
-            #widget.watch_status()
 
+    def on_worker_state_changed(self, event: Worker.StateChanged) -> None:
+        """Called when the worker state changes."""
+
+        if event.state == WorkerState.SUCCESS:
+            self.log("Initrc complete")
+            self.app.push_screen("main")
+
+
+class SettingsScreen(Screen):
+    TITLE = _("Settings")
+
+    def compose(self) -> ComposeResult:
+        yield Label("Settings")
+
+        for key, value in self.app.settings.items():
+            yield Label(f"{key}: {value}")
 
 class MgmtApp(App):
     
@@ -208,14 +194,19 @@ class MgmtApp(App):
 
     SCREENS = {
         'bootstrap': BootstrapScreen(),
-        'devices': DevicesScreen(),
+        'main': DevicesScreen(),
+        'settings': SettingsScreen(),
     }
 
     settings: Settings
+    discover: Discover
+    
+    app: "MgmtApp"
 
     def compose(self) -> ComposeResult:
         yield Header()
         yield Footer()
+
         self.push_screen("bootstrap")
 
     def run(self, *args, **kwargs):

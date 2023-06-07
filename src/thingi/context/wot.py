@@ -1,6 +1,7 @@
 from datetime import datetime
 from enum import Enum
-from typing import Dict, List, Set
+from itertools import chain
+from typing import Dict, Iterable, List, Set
 
 from pydantic import BaseModel, Field
 
@@ -80,7 +81,6 @@ class EventAffordance(InteractionAffordance):
     data: DataSchema | None = None
 
 
-
 class ThingDescription(ThingBaseModel):
     """
     Main class for the Thing Description.
@@ -88,15 +88,28 @@ class ThingDescription(ThingBaseModel):
     Thing Description (TD) is a machine-readable metadata format with
     standardized structure and semantics to describe Things.
     """
-    context_: List[str | Dict[str,str]] = Field(alias="@context", default=[DEFAULT_CONTEXT])
-    type_: str | Set[str] = Field(alias="@type", default=set(["Thing"]))
+    context_: List[str | Dict[str,str]] = Field(
+        alias="@context",
+        default=[DEFAULT_CONTEXT]
+    )
+    """Context maps terms to URLs."""
 
-    id: str | None = Field(alias="@id", default=None)
-    """Identifier of the Thing in form of a URI [RFC3986] (e.g., stable URI,
+    type_: str | Set[str] = Field(
+        alias="@type",
+        default=set(["Thing"])
+    )
+
+    id: str | None = Field(
+        alias="@id",
+        default=None
+    )
+    """Identifier of the Thing in form of a URI [RFC3986] (e.g., stable URI, 
     temporary and mutable URI, URI with local IP address, URN, etc.)."""
+
     title: str | None = None
     """human-readable title (e.g., display a text for UI representation) based
     on a default language."""
+
     description: str | None = None
     """Provides additional (human-readable) information based on a default
     language."""
@@ -118,3 +131,14 @@ class ThingDescription(ThingBaseModel):
     links: List[str] | None = None
     """Web links to arbitrary resources that relate to the specified
     Thing Description."""
+
+    @properties
+    def interactions(self) -> Iterable[InteractionAffordance]:
+        """
+        Return all the interactions of the Thing.
+        """
+        return chain(
+            self.properties.values(),
+            self.actions.values(),
+            self.events.values()
+        )

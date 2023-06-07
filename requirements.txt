@@ -3,6 +3,8 @@ pydantic
 
 click
 
+httpx
+
 # Used for the management app
 textual
 rich
@@ -10,3 +12,5 @@ toposort
 werkzeug
 cryptography
 multipledispatch
+
+sentry-sdk[flask]

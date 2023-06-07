@@ -73,8 +73,23 @@ async def ssl_cert(current_app):
     logger.debug("Generated temporary certificate %r and %r", pkey_file, cert_file)
     return True
 
-@initrc.rc
-async def hokey():
+
+@initrc.rc(depends_on=[load_settings])
+async def start_mdns(current_app):
+    """Start mDNS (zeroconf) service"""
+    from thingi.discover import Discover
+
+    if getattr(current_app, "zeroconf", None):
+        logger.info("Restarting zeroconf")
+        current_app.zeroconf.close()
+        return True
+
+    current_app.discover = Discover()
+
+    return True
+
+
+async def testing_hokey():
     """Hokey Pokey"""
 
     for i in range(3):
@@ -83,8 +98,7 @@ async def hokey():
 
     return True
 
-@initrc.rc
-async def skips():
+async def testing_skips():
     """Always skips"""
 
     for i in range(randint(1, 3)):
@@ -110,6 +124,9 @@ async def _main():
     app = MgmtApp()
 
     initrc.app = app
+
+    initrc.rc(testing_hokey)
+    initrc.rc(testing_skips)
 
     # For testing purposes, register this as decorator would
 

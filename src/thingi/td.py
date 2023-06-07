@@ -13,7 +13,7 @@ Currently makes two assumptions:
 from itertools import chain
 import json
 import uuid
-from typing import Annotated, Any, Callable, Dict, List, Optional, Set, Type, Union
+from typing import Annotated, Any, Callable, Dict, Iterator, List, Optional, Set, Type, Union
 
 from pydantic import BaseModel, Field
 from pyld import jsonld
@@ -48,10 +48,24 @@ class CompositeModel(wot.ThingDescription, wasmiot.ThingDescription):
         return super().json(by_alias=by_alias, exclude_unset=exclude_unset, **kwargs)
 
 
+class Interaction(BaseModel):
+    name: str
+    url: str
+    callback: Callable
+
+    def __call__(self, *args: Any, **kwds: Any) -> Any:
+        return self.callback(*args, **kwds)
+
+
 class Thingi():
 
     td: wot.ThingDescription
     cls: Type[BaseModel] = CompositeModel
+
+    interactions: List[Interaction] = Field(
+        description="List of interactions.",
+        default=[],
+    )
 
     def __init__(self, td: wot.ThingDescription, **kwargs): 
 
@@ -59,30 +73,48 @@ class Thingi():
         self.td = td
 
 
-    def set_property_handler(self, name: str, handler: callable):
+    def generate_forms(self):
         """
-        Set a handler for a property.
-
-        :param name: The name of the property.
-        :param handler: The handler function.
+        Generate forms from wasmiot entrypoints.
         """
-        ...
 
 
-    @property
-    def interactions(self) -> List[Dict]:
+    def invoke(self, name: str, *args: Any, **kwds: Any) -> Interaction:
         """
-        List of interactions.
+        Invoke an action.
         """
-        return chain(self.td.properties, self.td.actions, self.td.events)
+        match self.interactions:
+            case Interaction(url=name):
+                # TODO: Validate arguments.
+                return self.interactions[name]
+            case []: raise ValueError("No interactions defined.")
+
+
+    def find_interactions(self, service: str) -> Iterator[Interaction]:
+        """
+        Return all the interactions by name or by url.
+
+        Notice: Should return only one interaction.
+        
+        ..todo:: Maybe make a mapping of the interactions.
+        """
+
+        for interaction in self.interactions:
+            if service in (interaction.url, interaction.name):
+                yield interaction
+
+    def find_interaction(self, service: str) -> Interaction:
+        """
+        Return an interaction by name or by url.
+        """
+        return next(self.find_interactions(service), None)
+
 
     @staticmethod
     def producer(doc: str | bytes, **kwargs) -> "Thingi":
         """
         Create a Thingi from a Thing Description.
         """
-        if isinstance(doc, bytes):
-            doc = doc.decode("utf-8")
 
         # Add the default context by combining the two contexts.
         context = []
@@ -92,7 +124,7 @@ class Thingi():
             context.extend(base_class().context_)
 
         description = jsonld_compact(doc, context)
-        td = CompositeModel.parse_obj(description)
+        thing_desc = CompositeModel.parse_obj(description)
 
         return Thingi(description, **kwargs)
 
