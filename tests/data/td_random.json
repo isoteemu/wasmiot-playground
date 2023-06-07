@@ -1,0 +1,32 @@
+{
+    "@context": [
+        "https://www.w3.org/2022/wot/td/v1.1#",
+        {
+            "wasmiot": "https://wetware.fi/2023/wasmiot/v0.1#",
+            "saref": "https://w3id.org/saref#"
+        }
+    ],
+    "@type": ["Thing", "wasmiot:Supervisor"],
+    "title": "Random number generator",
+    "properties": {
+        "status": {
+            "id": "urn:dev:wasm:random_number_generator",
+            "type": "number",
+            "wasmiot:entrypoint": "random_number",
+            "wasmiot:dependsOn": [
+                {
+                    "id": "urn:dev:wasm:set_seed",
+                    "wasmiot:form_arguments": [
+                        { "value": 42 }
+                    ]
+                }
+            ]
+        },
+        "seed": {
+            "id": "urn:dev:wasm:set_seed",
+            "type": "number",
+            "forms": [],
+            "wasmiot:entrypoint": "set_seed"
+        }
+    }
+}
